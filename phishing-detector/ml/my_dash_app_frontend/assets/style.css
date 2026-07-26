@@ -1,0 +1,70 @@
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #f0f2f5;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+.card {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.phishing {
+    background: #fff0f0;
+    border-left: 5px solid #e53e3e;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.safe {
+    background: #f0fff4;
+    border-left: 5px solid #38a169;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+h1 {
+    color: #1a202c;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    text-align: center;
+    color: #718096;
+    margin-bottom: 30px;
+}
+
+.reasons-list {
+    margin-bottom: 16px;
+}
+
+.link-badge {
+    list-style: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-family: monospace;
+    font-size: 0.9em;
+    word-break: break-all;
+}
+
+.link-badge.phishing {
+    background: #fff0f0;
+    border-left: 4px solid #e53e3e;
+}
+
+.link-badge.safe {
+    background: #f0fff4;
+    border-left: 4px solid #38a169;
+}

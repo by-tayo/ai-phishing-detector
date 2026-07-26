@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+pydantic
+requests
+dash
+dash-bootstrap-components
+pandas
+numpy
+scikit-learn
+xgboost
+transformers
+torch
+joblib
+datasets
+matplotlib
+seaborn

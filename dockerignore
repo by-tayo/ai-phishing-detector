@@ -1,0 +1,80 @@
+# ============================================
+# .dockerignore — AI Phishing Detector
+# Excludes unnecessary files from Docker build
+# ============================================
+
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment — never include in Docker
+venv/
+env/
+.venv/
+
+# Terraform files — sensitive, never in Docker
+*.tfstate
+*.tfstate.backup
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+backend/infra/
+
+# Environment variables — sensitive
+.env
+.env.local
+.env.production
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Large data files — not needed in container
+ml/data/*.csv
+ml/data/*.zip
+ml/data/*.gz
+
+# Jupyter notebooks
+*.ipynb
+ml/notebooks/
+
+# Test files
+tests/
+test_*.py
+
+# Documentation
+*.md
+*.pdf
+*.docx
+docs/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# AWS credentials — never in Docker
+.aws/
+awscliv2.zip
+
+# Node modules (if any)
+node_modules/
+.next/
+
+# Logs
+*.log
+logs/
+
+# Large zip files
+*.zip
+*.tar.gz
+
+# IDE files
+.vscode/
+.cursor/
+*.idea/
