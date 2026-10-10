@@ -1,11 +1,3 @@
-"""URL preprocessing shared by training and the API.
-
-train.py, predict.py, predict_email.py and the backend all use this module, so
-a URL is turned into features exactly the same way at training time and at
-prediction time. The saved model (phishing_model.pkl) refers to these
-functions as `preprocess.<name>`, so anything that loads the model must put
-the ml/ folder on sys.path first (see load_url_model below).
-"""
 from __future__ import annotations
 
 import ipaddress
@@ -19,7 +11,6 @@ import joblib
 import numpy as np
 import tldextract
 
-# Offline: use the public-suffix snapshot bundled with tldextract, no downloads.
 _EXTRACT = tldextract.TLDExtract(suffix_list_urls=())
 
 BRANDS = [
@@ -28,7 +19,6 @@ BRANDS = [
     "irs", "docusign", "linkedin", "facebook", "instagram", "whatsapp",
     "dropbox", "adobe", "yahoo", "coinbase", "binance", "usps", "fedex", "dhl",
 ]
-# Common character swaps in lookalike domains (paypa1, g00gle, micr0soft).
 _LOOKALIKE = str.maketrans({"0": "o", "1": "l", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a"})
 LURE_WORDS = [
     "login", "log-in", "signin", "sign-in", "verify", "verification", "secure",
@@ -40,8 +30,7 @@ RISKY_TLDS = {
     "work", "click", "link", "rest", "cfd", "sbs", "monster", "tk", "ml", "ga", "cf", "gq",
 }
 
-# Domains where anyone can publish a page. A URL on these is never treated as
-# "well-known", even though the domains themselves are popular.
+
 SHARED_HOSTING = {
     "blogspot.com", "github.io", "githubusercontent.com", "web.app", "firebaseapp.com",
     "appspot.com", "amazonaws.com", "cloudfront.net", "googleapis.com", "azurewebsites.net",
@@ -55,7 +44,6 @@ SHARED_HOSTING = {
     "app.link", "tumblr.com", "yolasite.com", "webs.com", "business.site", "hsforms.com",
     "digitaloceanspaces.com", "b-cdn.net", "cafe24.com", "site123.me", "mystrikingly.com",
 }
-# Popular sites with sections where anyone can publish (forms, docs, sites).
 SHARED_HOSTS = {
     "sites.google.com", "docs.google.com", "drive.google.com", "forms.office.com",
     "onedrive.live.com", "storage.cloud.google.com",
@@ -114,11 +102,6 @@ def _entropy(text: str) -> float:
 
 
 def _looks_like_brand(domain: str) -> bool:
-    """True for 'paypa1', 'paypal-secure', 'g00gle-login'; False for 'paypal' itself.
-
-    Short brands (irs, dhl, chase, apple...) must match a whole hyphen-separated
-    piece, so 'first' or 'purchase' don't count as IRS or Chase.
-    """
     squashed = domain.translate(_LOOKALIKE)
     tokens = squashed.split("-")
     joined = squashed.replace("-", "")
@@ -186,7 +169,6 @@ def lexical_matrix(urls) -> np.ndarray:
 
 
 def explain(url: str) -> list[str]:
-    """Plain-English reasons from the hand-built features, for API responses."""
     f = dict(zip(FEATURE_NAMES, lexical_features(url)))
     reasons = []
     if f["is_ip"]:
@@ -231,8 +213,6 @@ TOP_DOMAINS_PATH = ML_DIR / "data" / "top_domains.txt"
 TOP_HOSTS_PATH = ML_DIR / "data" / "top_hosts.txt"
 _lists: dict[str, set[str]] = {}
 
-# A URL inside the query string (google.com/url?q=https://..., vk.com/away.php?to=...)
-# means a trusted site is forwarding you somewhere else.
 _EMBEDDED_URL = re.compile(r"(https?(:|%3a)(//|%2f%2f))|(\bwww\.)|(%2f%2fwww)", re.IGNORECASE)
 
 
@@ -242,21 +222,11 @@ def _load(path: Path) -> set[str]:
             lines = path.read_text().splitlines()
             _lists[path] = {ln.strip() for ln in lines if ln.strip() and not ln.startswith("#")}
         else:
-            _lists[path] = set()  # lists not built yet: every URL goes to the model
+            _lists[path] = set()
     return _lists[path]
 
 
 def known_domain(url: str) -> bool:
-    """True only for popular sites run by their owners, not pages anyone can publish.
-
-    * The bare domain or www. (paypal.com, www.amazon.com) must be in the
-      Tranco top 10,000 domains.
-    * Any other host (docs.python.org, accounts.google.com) must itself be in
-      the Tranco top hosts. Random customer subdomains like
-      ing-login.tumblr.com or x.app.link never are.
-    * Free hosting, file sharing, form builders and URL shorteners are never
-      trusted, and neither is a link that forwards to another URL.
-    """
     p = _parts(url)
     host = (p.hostname or "").lower()
     if host.startswith("www."):
