@@ -1,25 +1,3 @@
-"""Train the URL phishing model with an honest evaluation.
-
-What changed from the first version:
-  * Data: ml/data/final_dataset.csv (real safe URLs with paths), built by
-    ml/data/build_dataset.py.
-  * URLs are normalized first (no scheme, no leading 'www.'), so the model
-    can't learn "https://www." = safe.
-  * Train/test are split by registered domain, so no website appears in both.
-  * The TF-IDF vocabulary is learned from the training split only.
-  * Character n-grams are combined with hand-built features (IP host,
-    lookalike brand, brand outside the real domain, punycode, risky TLD...).
-  * Results come from 5-fold cross-validation grouped by domain, plus a final
-    held-out test split and a set of hand-picked hard cases.
-
-Outputs:
-  ml/phishing_model.pkl        the full pipeline: raw URL in, prediction out
-                               (replaces the old model + vectorizer.pkl pair)
-  ml/model_metrics.json        the numbers to put in the README
-  confusion_matrix.png         held-out test results
-
-Run from anywhere:  python3 phishing-detector/ml/train.py
-"""
 from __future__ import annotations
 
 import json
@@ -39,7 +17,7 @@ from xgboost import XGBClassifier
 
 ML_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(ML_DIR))
-from preprocess import (  # noqa: E402
+from preprocess import ( 
     MODEL_PATH, known_domain, lexical_matrix, normalize_many, registered_domain,
 )
 
@@ -49,8 +27,6 @@ METRICS_OUT = ML_DIR / "model_metrics.json"
 PLOT_OUT = ML_DIR.parent / "confusion_matrix.png"
 SEED = 42
 
-# URLs the first model got wrong, plus a few classic phishing patterns.
-# 0 = legitimate, 1 = phishing
 HARD_CASES = [
     ("https://github.com/by-tayo/ai-phishing-detector", 0),
     ("https://www.amazon.com/gp/your-account/order-history", 0),
@@ -100,7 +76,7 @@ def scores(y_true, y_pred) -> dict:
 
 def save_confusion_matrix(cm, model_name: str) -> None:
     import matplotlib
-    matplotlib.use("Agg")  # no window needed (works in Codespaces and Docker)
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots(figsize=(5, 4))
@@ -129,13 +105,11 @@ def main() -> None:
     X, y, groups = df["url"].to_numpy(), df["label"].astype(int).to_numpy(), df["group"].to_numpy()
     print(f"{len(df):,} URLs from {df['group'].nunique():,} different websites\n")
 
-    # 1) Hold out 20% of websites for the final test.
     train_idx, test_idx = next(GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=SEED)
                                .split(X, y, groups))
     shared = set(groups[train_idx]) & set(groups[test_idx])
     assert not shared, f"websites in both train and test: {list(shared)[:5]}"
 
-    # 2) Pick the model with 5-fold cross-validation on the training websites only.
     cv_results = {}
     for name, make in CANDIDATES.items():
         fold_f1 = []
@@ -149,7 +123,6 @@ def main() -> None:
     best = max(cv_results, key=lambda n: cv_results[n]["f1_mean"])
     print(f"\nBest: {best}")
 
-    # 3) Fit the best model on all training websites; score the held-out websites once.
     pipe = build_pipeline(CANDIDATES[best]())
     pipe.fit(X[train_idx], y[train_idx])
     pred = pipe.predict(X[test_idx])
@@ -161,7 +134,6 @@ def main() -> None:
     print(f"  safe URLs wrongly flagged: {fp}   phishing URLs missed: {fn}")
     save_confusion_matrix([[tn, fp], [fn, tp]], best)
 
-    # Same test with the known-domain check (Tranco top 10k) applied first.
     known = np.array([known_domain(u) for u in X[test_idx]])
     pred_known = np.where(known, 0, pred)
     known_scores = scores(y[test_idx], pred_known)
@@ -173,7 +145,6 @@ def main() -> None:
         print(f"  {k:<10} {v:.2%}")
     print(f"  safe URLs wrongly flagged: {fp_k}   phishing URLs missed: {fn_k}")
 
-    # 4) Hand-picked hard cases.
     print("\nHard cases with the known-domain check (✓ = correct):")
     hard_ok = 0
     for url, want in HARD_CASES:
@@ -183,7 +154,6 @@ def main() -> None:
         print(f"  {'✓' if ok else '✗'} {'PHISH' if p >= 0.5 else 'safe ':5} {p:5.1%}  {url}")
     print(f"  {hard_ok}/{len(HARD_CASES)} correct")
 
-    # 5) Final model: refit on all data so the API gets every example.
     final = build_pipeline(CANDIDATES[best]())
     final.fit(X, y)
     joblib.dump(final, MODEL_OUT)
