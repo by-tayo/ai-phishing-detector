@@ -1,19 +1,3 @@
-"""Download the Tranco lists used by the known-site check (see preprocess.known_domain).
-
-Tranco (https://tranco-list.eu/) is a research ranking of popular websites,
-built to be harder to manipulate than older lists like Alexa. Two lists:
-
-  ml/data/top_domains.txt  top 10,000 registered domains (paypal.com, python.org)
-                           trusted only for the bare domain and www.
-  ml/data/top_hosts.txt    top 50,000 full host names (docs.python.org,
-                           accounts.google.com), so a popular subdomain is
-                           trusted but a random customer subdomain is not
-
-Free-hosting and file-sharing domains are left out of both on purpose: anyone
-can put a page on blogspot.com or github.io, and attackers do.
-
-Run:  python3 phishing-detector/ml/data/build_top_domains.py
-"""
 from __future__ import annotations
 
 import csv
@@ -25,11 +9,10 @@ from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from preprocess import SHARED_HOSTING, SHARED_HOSTS, registered_domain  # noqa: E402
+from preprocess import SHARED_HOSTING, SHARED_HOSTS, registered_domain
 
 DATA_DIR = Path(__file__).resolve().parent
 LISTS = [
-    # (zip URL, ID URL, how many, output file, keep full host names?)
     ("https://tranco-list.eu/top-1m.csv.zip", "https://tranco-list.eu/top-1m-id",
      10_000, DATA_DIR / "top_domains.txt", False),
     ("https://tranco-list.eu/top-1m-incl-subdomains.csv.zip",
