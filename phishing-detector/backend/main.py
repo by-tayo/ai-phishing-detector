@@ -34,6 +34,7 @@ def predict(request: PhishingRequest):
         input=result["input"],
         is_phishing=result["is_phishing"],
         confidence=result["confidence"],
+        reasons=result["reasons"],
     )
 
 @app.post("/predict/transformer", response_model=PhishingResponse)

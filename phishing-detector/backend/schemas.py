@@ -7,6 +7,7 @@ class PhishingResponse(BaseModel):
     input: str
     is_phishing: bool
     confidence: float
+    reasons: list[str] = []
 
 class EmailRequest(BaseModel):
     raw_email: str

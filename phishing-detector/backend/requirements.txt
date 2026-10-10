@@ -7,6 +7,7 @@ dash-bootstrap-components
 pandas
 numpy
 scikit-learn
+tldextract
 xgboost
 transformers
 torch
