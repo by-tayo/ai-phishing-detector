@@ -18,7 +18,6 @@ METRICS_PATH = Path(__file__).resolve().parent.parent / "model_metrics.json"
 
 
 def url_model_summary() -> str:
-    """Describe the URL model with the numbers train.py saved, so the page never goes stale."""
     try:
         m = json.loads(METRICS_PATH.read_text())
         test = m["held_out_test"]
@@ -49,8 +48,6 @@ url_tab_content = html.Div(className="card", children=[
         dbc.Col([
             dbc.Select(
                 id="model-select",
-                # The DistilBERT endpoint (/predict/transformer) is left out until it is
-                # retrained on the new dataset; it learned the old dataset's shortcut.
                 options=[
                     {"label": "ML Model", "value": "predict"},
                     {"label": "Live Check (OpenPhish)", "value": "check-live"},
@@ -266,6 +263,4 @@ def check_email(n_clicks, raw_email):
 
 
 if __name__ == "__main__":
-    # Debug mode shows Dash's developer toolbar; keep it off for demos and screenshots.
-    # Turn it on with:  DASH_DEBUG=1 python3 app.py
     app.run(debug=os.environ.get("DASH_DEBUG") == "1", port=8050)
