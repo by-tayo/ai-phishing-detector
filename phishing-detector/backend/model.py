@@ -4,10 +4,8 @@ import sys
 ML_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ml")
 sys.path.insert(0, os.path.abspath(ML_DIR))
 
-from preprocess import load_url_model, score_url  # noqa: E402
+from preprocess import load_url_model, score_url
 
-# One file holds the whole pipeline (URL cleanup, features and model),
-# so there's no separate vectorizer to keep in sync.
 model = load_url_model()
 
 
