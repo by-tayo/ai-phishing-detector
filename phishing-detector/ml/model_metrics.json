@@ -1,0 +1,36 @@
+{
+  "dataset": "Hannousse & Yahiouche (2021) via Hugging Face pirocheto/phishing-url (CC BY 4.0)",
+  "urls": 11429,
+  "websites": 6634,
+  "split": "grouped by registered domain; no website in both train and test",
+  "model": "logistic_regression",
+  "cross_validation": {
+    "logistic_regression": {
+      "f1_mean": 0.911,
+      "f1_std": 0.0241
+    },
+    "xgboost": {
+      "f1_mean": 0.9043,
+      "f1_std": 0.0331
+    }
+  },
+  "held_out_test": {
+    "accuracy": 0.9075,
+    "precision": 0.9067,
+    "recall": 0.8793,
+    "f1": 0.8928,
+    "test_urls": 2120,
+    "false_positives": 84,
+    "false_negatives": 112
+  },
+  "held_out_test_with_known_domains": {
+    "accuracy": 0.9108,
+    "precision": 0.9147,
+    "recall": 0.8782,
+    "f1": 0.8961,
+    "known_domain_urls": 218,
+    "false_positives": 76,
+    "false_negatives": 113
+  },
+  "hard_cases_correct": "10/11"
+}
