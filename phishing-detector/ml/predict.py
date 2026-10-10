@@ -1,12 +1,8 @@
-"""Score a URL with the trained model from the command line.
-
-    python3 ml/predict.py "https://www.paypa1-secure-login.com"
-"""
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from preprocess import load_url_model, score_url  # noqa: E402
+from preprocess import load_url_model, score_url
 
 model = load_url_model()
 
