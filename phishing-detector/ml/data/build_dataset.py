@@ -1,17 +1,3 @@
-"""Build a URL dataset where safe and phishing URLs look alike in format.
-
-Source: Hannousse & Yahiouche (2021), "Towards benchmark datasets for machine
-learning based website phishing detection", published on Hugging Face as
-"pirocheto/phishing-url" (CC BY 4.0).
-
-The previous version built every safe URL as "https://www.<domain>", so the
-model learned that format instead of phishing. Here both classes have
-full URLs with paths, http and https, and with and without "www.", so the
-model can't learn the formatting shortcut.
-
-Output: ml/data/final_dataset.csv with columns url, label, host
-        label 1 = phishing, 0 = legitimate
-"""
 from pathlib import Path
 from urllib.parse import urlsplit
 
