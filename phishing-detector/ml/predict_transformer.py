@@ -11,10 +11,6 @@ _tokenizer = None
 def _load_model():
     global _model, _tokenizer
     if _model is None:
-        # Loaded lazily so the rest of the API (URL/email endpoints) still
-        # works even when the BERT weights aren't present locally (they're
-        # gitignored — see README) and only this endpoint fails. transformers and
-        # torch are imported here too, so the API starts without them installed.
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
         _model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
