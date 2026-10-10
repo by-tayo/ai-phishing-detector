@@ -52,6 +52,8 @@ SHARED_HOSTING = {
     "bit.ly", "tinyurl.com", "t.co", "goo.gl", "forms.gle", "is.gd", "cutt.ly", "rebrand.ly",
     "translate.goog", "dropbox.com", "box.com", "wetransfer.com", "1drv.ms", "notion.site",
     "framer.app", "carrd.co", "jimdosite.com", "myshopify.com", "linktr.ee", "typeform.com",
+    "app.link", "tumblr.com", "yolasite.com", "webs.com", "business.site", "hsforms.com",
+    "digitaloceanspaces.com", "b-cdn.net", "cafe24.com", "site123.me", "mystrikingly.com",
 }
 # Popular sites with sections where anyone can publish (forms, docs, sites).
 SHARED_HOSTS = {
@@ -226,35 +228,61 @@ def phishing_probability(model, url: str) -> float:
 
 
 TOP_DOMAINS_PATH = ML_DIR / "data" / "top_domains.txt"
-_top_domains: set[str] | None = None
+TOP_HOSTS_PATH = ML_DIR / "data" / "top_hosts.txt"
+_lists: dict[str, set[str]] = {}
+
+# A URL inside the query string (google.com/url?q=https://..., vk.com/away.php?to=...)
+# means a trusted site is forwarding you somewhere else.
+_EMBEDDED_URL = re.compile(r"(https?(:|%3a)(//|%2f%2f))|(\bwww\.)|(%2f%2fwww)", re.IGNORECASE)
 
 
-def _load_top_domains() -> set[str]:
-    global _top_domains
-    if _top_domains is None:
-        if TOP_DOMAINS_PATH.exists():
-            lines = TOP_DOMAINS_PATH.read_text().splitlines()
-            _top_domains = {ln.strip() for ln in lines if ln.strip() and not ln.startswith("#")}
+def _load(path: Path) -> set[str]:
+    if path not in _lists:
+        if path.exists():
+            lines = path.read_text().splitlines()
+            _lists[path] = {ln.strip() for ln in lines if ln.strip() and not ln.startswith("#")}
         else:
-            _top_domains = set()  # list not built yet: every URL goes to the model
-    return _top_domains
+            _lists[path] = set()  # lists not built yet: every URL goes to the model
+    return _lists[path]
 
 
 def known_domain(url: str) -> bool:
-    """True if the URL's real domain is a well-known site (Tranco top 10k)
-    and not a place where anyone can host a page."""
-    host = (_parts(url).hostname or "").lower()
+    """True only for popular sites run by their owners, not pages anyone can publish.
+
+    * The bare domain or www. (paypal.com, www.amazon.com) must be in the
+      Tranco top 10,000 domains.
+    * Any other host (docs.python.org, accounts.google.com) must itself be in
+      the Tranco top hosts. Random customer subdomains like
+      ing-login.tumblr.com or x.app.link never are.
+    * Free hosting, file sharing, form builders and URL shorteners are never
+      trusted, and neither is a link that forwards to another URL.
+    """
+    p = _parts(url)
+    host = (p.hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    try:
+        ipaddress.ip_address(host)
+        return False
+    except ValueError:
+        pass
     if any(host == h or host.endswith("." + h) for h in SHARED_HOSTS):
         return False
     reg = registered_domain(url)
-    return reg not in SHARED_HOSTING and reg in _load_top_domains()
+    if not reg or reg in SHARED_HOSTING:
+        return False
+    if _EMBEDDED_URL.search(p.query or "") or _EMBEDDED_URL.search(p.path or "/"):
+        return False
+    if host == reg:
+        return reg in _load(TOP_DOMAINS_PATH)
+    return host in _load(TOP_HOSTS_PATH)
 
 
-KNOWN_DOMAIN_REASON = "Well-known domain (Tranco top 10,000), checked before the model"
+KNOWN_DOMAIN_REASON = "Well-known site (Tranco top list), checked before the model"
 
 
 def score_url(model, url: str) -> tuple[float, list[str]]:
-    """Phishing probability and reasons: the known-domain check first, then the model."""
+    """Phishing probability and reasons: the known-site check first, then the model."""
     if known_domain(url):
         return 0.0, [KNOWN_DOMAIN_REASON]
     return phishing_probability(model, url), explain(url)
