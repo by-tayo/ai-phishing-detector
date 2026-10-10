@@ -3,10 +3,10 @@ import joblib
 
 try:
     from ml.email_heuristics import analyze_email
-    from ml.preprocess import load_url_model, phishing_probability
+    from ml.preprocess import load_url_model, score_url
 except ImportError:
     from email_heuristics import analyze_email
-    from preprocess import load_url_model, phishing_probability
+    from preprocess import load_url_model, score_url
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -37,7 +37,7 @@ def predict_email(raw_email: str) -> dict:
     links = []
     link_score = 0.0
     for url in analysis["urls"]:
-        confidence = phishing_probability(_url_model, url)
+        confidence, _ = score_url(_url_model, url)
         links.append({
             "url": url,
             "is_phishing": confidence >= 0.5,

@@ -40,6 +40,25 @@ RISKY_TLDS = {
     "work", "click", "link", "rest", "cfd", "sbs", "monster", "tk", "ml", "ga", "cf", "gq",
 }
 
+# Domains where anyone can publish a page. A URL on these is never treated as
+# "well-known", even though the domains themselves are popular.
+SHARED_HOSTING = {
+    "blogspot.com", "github.io", "githubusercontent.com", "web.app", "firebaseapp.com",
+    "appspot.com", "amazonaws.com", "cloudfront.net", "googleapis.com", "azurewebsites.net",
+    "windows.net", "herokuapp.com", "netlify.app", "vercel.app", "pages.dev", "workers.dev",
+    "r2.dev", "glitch.me", "repl.co", "wixsite.com", "weebly.com", "wordpress.com",
+    "squarespace.com", "godaddysites.com", "webflow.io", "000webhostapp.com", "sharepoint.com",
+    "ngrok.io", "ngrok-free.app", "duckdns.org", "ddns.net", "no-ip.com", "ipfs.io", "dweb.link",
+    "bit.ly", "tinyurl.com", "t.co", "goo.gl", "forms.gle", "is.gd", "cutt.ly", "rebrand.ly",
+    "translate.goog", "dropbox.com", "box.com", "wetransfer.com", "1drv.ms", "notion.site",
+    "framer.app", "carrd.co", "jimdosite.com", "myshopify.com", "linktr.ee", "typeform.com",
+}
+# Popular sites with sections where anyone can publish (forms, docs, sites).
+SHARED_HOSTS = {
+    "sites.google.com", "docs.google.com", "drive.google.com", "forms.office.com",
+    "onedrive.live.com", "storage.cloud.google.com",
+}
+
 FEATURE_NAMES = [
     "host_length", "path_length", "query_params", "subdomain_count", "host_dots",
     "host_hyphens", "host_digits", "host_entropy", "is_ip", "has_at", "has_punycode",
@@ -204,3 +223,38 @@ def phishing_probability(model, url: str) -> float:
     """Probability (0-1) that the URL is phishing."""
     proba = model.predict_proba([url])[0]
     return float(proba[list(model.classes_).index(1)])
+
+
+TOP_DOMAINS_PATH = ML_DIR / "data" / "top_domains.txt"
+_top_domains: set[str] | None = None
+
+
+def _load_top_domains() -> set[str]:
+    global _top_domains
+    if _top_domains is None:
+        if TOP_DOMAINS_PATH.exists():
+            lines = TOP_DOMAINS_PATH.read_text().splitlines()
+            _top_domains = {ln.strip() for ln in lines if ln.strip() and not ln.startswith("#")}
+        else:
+            _top_domains = set()  # list not built yet: every URL goes to the model
+    return _top_domains
+
+
+def known_domain(url: str) -> bool:
+    """True if the URL's real domain is a well-known site (Tranco top 10k)
+    and not a place where anyone can host a page."""
+    host = (_parts(url).hostname or "").lower()
+    if any(host == h or host.endswith("." + h) for h in SHARED_HOSTS):
+        return False
+    reg = registered_domain(url)
+    return reg not in SHARED_HOSTING and reg in _load_top_domains()
+
+
+KNOWN_DOMAIN_REASON = "Well-known domain (Tranco top 10,000), checked before the model"
+
+
+def score_url(model, url: str) -> tuple[float, list[str]]:
+    """Phishing probability and reasons: the known-domain check first, then the model."""
+    if known_domain(url):
+        return 0.0, [KNOWN_DOMAIN_REASON]
+    return phishing_probability(model, url), explain(url)

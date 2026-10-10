@@ -6,19 +6,19 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from preprocess import explain, load_url_model, phishing_probability  # noqa: E402
+from preprocess import load_url_model, score_url  # noqa: E402
 
 model = load_url_model()
 
 
 def predict_phishing(text: str) -> dict:
-    probability = phishing_probability(model, text)
+    probability, reasons = score_url(model, text)
     is_phishing = probability >= 0.5
     return {
         "input": text,
         "is_phishing": is_phishing,
         "confidence": round(probability if is_phishing else 1 - probability, 4),
-        "reasons": explain(text),
+        "reasons": reasons,
     }
 
 

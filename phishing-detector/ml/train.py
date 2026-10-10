@@ -39,7 +39,9 @@ from xgboost import XGBClassifier
 
 ML_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(ML_DIR))
-from preprocess import MODEL_PATH, lexical_matrix, normalize_many, registered_domain  # noqa: E402
+from preprocess import (  # noqa: E402
+    MODEL_PATH, known_domain, lexical_matrix, normalize_many, registered_domain,
+)
 
 DATA = ML_DIR / "data" / "final_dataset.csv"
 MODEL_OUT = MODEL_PATH
@@ -159,11 +161,23 @@ def main() -> None:
     print(f"  safe URLs wrongly flagged: {fp}   phishing URLs missed: {fn}")
     save_confusion_matrix([[tn, fp], [fn, tp]], best)
 
+    # Same test with the known-domain check (Tranco top 10k) applied first.
+    known = np.array([known_domain(u) for u in X[test_idx]])
+    pred_known = np.where(known, 0, pred)
+    known_scores = scores(y[test_idx], pred_known)
+    _, fp_k, fn_k, _ = confusion_matrix(y[test_idx], pred_known, labels=[0, 1]).ravel()
+    print(f"\nWith the known-domain check ({int(known.sum())} test URLs on well-known domains):")
+    if known.sum() == 0:
+        print("  (top_domains.txt not built yet, so nothing changes)")
+    for k, v in known_scores.items():
+        print(f"  {k:<10} {v:.2%}")
+    print(f"  safe URLs wrongly flagged: {fp_k}   phishing URLs missed: {fn_k}")
+
     # 4) Hand-picked hard cases.
-    print("\nHard cases (✓ = correct):")
+    print("\nHard cases with the known-domain check (✓ = correct):")
     hard_ok = 0
     for url, want in HARD_CASES:
-        p = float(pipe.predict_proba([url])[0][1])
+        p = 0.0 if known_domain(url) else float(pipe.predict_proba([url])[0][1])
         ok = (p >= 0.5) == bool(want)
         hard_ok += ok
         print(f"  {'✓' if ok else '✗'} {'PHISH' if p >= 0.5 else 'safe ':5} {p:5.1%}  {url}")
@@ -181,6 +195,8 @@ def main() -> None:
         "model": best, "cross_validation": cv_results,
         "held_out_test": {**test_scores, "test_urls": int(len(test_idx)),
                           "false_positives": int(fp), "false_negatives": int(fn)},
+        "held_out_test_with_known_domains": {**known_scores, "known_domain_urls": int(known.sum()),
+                                             "false_positives": int(fp_k), "false_negatives": int(fn_k)},
         "hard_cases_correct": f"{hard_ok}/{len(HARD_CASES)}",
     }
     METRICS_OUT.write_text(json.dumps(metrics, indent=2))
