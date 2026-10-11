@@ -14,8 +14,6 @@ The pipeline:
 * Exposes predictions via a **FastAPI REST API** and an interactive **Plotly Dash dashboard** with URL and Email scanner tabs.
 * Includes **Terraform** configuration for AWS resources.
 
-> **Why the URL accuracy is 91%, not 99.9%:** the first version reported 99.92% accuracy, but every legitimate URL in its training data was built as `https://www.<domain>`, with no path, while phishing URLs were real, messy links. The model learned that format instead of phishing: it flagged `github.com/by-tayo/...` and `paypal.com/signin` as phishing and passed `www.paypa1-secure-login.com` as safe. The rebuilt model uses real URLs on both sides and is tested on unseen websites, so its numbers reflect real use. See [ML Models & Results](#-ml-models--results).
-
 ---
 
 ## 📑 Table of Contents
@@ -49,8 +47,6 @@ The pipeline:
 ---
 
 ## 📂 Project Structure
-
-*(Note: datasets (`.csv`), heavy model weights, and local `.terraform` state are `.gitignored` to keep the repository lightweight. The dataset scripts rebuild them.)*
 
 ```text
 phishing-detector/
