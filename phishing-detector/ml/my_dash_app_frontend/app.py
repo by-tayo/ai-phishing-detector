@@ -1,3 +1,7 @@
+import json
+import os
+from pathlib import Path
+
 import dash
 from dash import html, dcc, Input, Output, State, callback
 import dash_bootstrap_components as dbc
@@ -9,7 +13,23 @@ app = dash.Dash(
     assets_folder="assets"
 )
 
-API_URL = "http://127.0.0.1:8000"
+API_URL = os.environ.get("API_URL", "http://127.0.0.1:8000")
+METRICS_PATH = Path(__file__).resolve().parent.parent / "model_metrics.json"
+
+
+def url_model_summary() -> str:
+    try:
+        m = json.loads(METRICS_PATH.read_text())
+        test = m["held_out_test"]
+        with_check = m.get("held_out_test_with_known_domains", {})
+        name = m["model"].replace("_", " ").title()
+        text = (f"🤖 URL model ({name}): trained on {m['urls']:,} URLs from {m['websites']:,} websites, "
+                f"{test['accuracy']:.1%} accuracy on websites it never saw in training")
+        if with_check:
+            text += f" ({with_check['accuracy']:.1%} with the known-site check)"
+        return text
+    except (OSError, KeyError, ValueError):
+        return "🤖 URL model: run ml/train.py to see its test results here"
 
 url_tab_content = html.Div(className="card", children=[
     html.P("Enter a URL to check if it's phishing or legitimate.",
@@ -29,8 +49,7 @@ url_tab_content = html.Div(className="card", children=[
             dbc.Select(
                 id="model-select",
                 options=[
-                    {"label": "ML Model (XGBoost)", "value": "predict"},
-                    {"label": "Transformer (BERT)", "value": "predict/transformer"},
+                    {"label": "ML Model", "value": "predict"},
                     {"label": "Live Check (OpenPhish)", "value": "check-live"},
                 ],
                 value="predict",
@@ -95,9 +114,11 @@ app.layout = html.Div(className="container", children=[
         html.H4("📊 How it works"),
         html.P("This tool uses several detection methods:"),
         html.Ul([
-            html.Li("🤖 ML Model (XGBoost) — trained on 111,754 URLs with 99.92% accuracy"),
-            html.Li("🧠 Transformer (BERT) — fine-tuned DistilBERT with 99.98% accuracy"),
-            html.Li("🌐 Live Check — queries OpenPhish live threat database"),
+            html.Li(url_model_summary()),
+            html.Li("✅ Known-site check — popular sites from the Tranco research list are "
+                    "trusted before the model runs; free hosting, link shorteners and "
+                    "redirect links never are"),
+            html.Li("🌐 Live Check — looks the URL up in the OpenPhish live threat feed"),
             html.Li("📧 Email Scanner — combines an ML text classifier, sender/header "
                     "heuristics (spoofing, urgency language, mismatched links), and the "
                     "URL model on any links found in the email"),
@@ -124,15 +145,39 @@ def check_url(n_clicks, url, model):
         )
         result = response.json()
 
+        if "in_database" in result:  # Live Check returns a lookup, not a prediction
+            if result.get("error"):
+                return dbc.Alert(f"OpenPhish lookup failed: {result['error']}", color="danger")
+            if result["in_database"]:
+                return html.Div(className="phishing", children=[
+                    html.H3("⚠️ Listed in OpenPhish"),
+                    html.P(f"URL: {url}"),
+                    html.P("This exact URL is in the OpenPhish live phishing feed. Do not visit it."),
+                ])
+            return html.Div(className="safe", children=[
+                html.H3("ℹ️ Not in OpenPhish"),
+                html.P(f"URL: {url}"),
+                html.P("This exact URL isn't in the live feed. That doesn't prove it's safe; "
+                       "new phishing pages appear every day, so try the ML Model too."),
+            ])
+
         is_phishing = result.get("is_phishing", False)
         confidence = result.get("confidence", 0)
         confidence_pct = f"{confidence * 100:.2f}%"
+        reasons = result.get("reasons", [])
+        reasons_block = html.Div()
+        if reasons:
+            reasons_block = html.Div([
+                html.P("Why:", className="mb-1", style={"fontWeight": "bold"}),
+                html.Ul([html.Li(reason) for reason in reasons], className="reasons-list"),
+            ])
 
         if is_phishing:
             return html.Div(className="phishing", children=[
                 html.H3("⚠️ Phishing Detected!"),
                 html.P(f"URL: {url}"),
                 html.P(f"Confidence: {confidence_pct}"),
+                reasons_block,
                 html.P("This URL appears to be malicious. Do not visit it.")
             ])
         else:
@@ -140,6 +185,7 @@ def check_url(n_clicks, url, model):
                 html.H3("✅ Safe"),
                 html.P(f"URL: {url}"),
                 html.P(f"Confidence: {confidence_pct}"),
+                reasons_block,
                 html.P("This URL appears to be legitimate.")
             ])
 
@@ -217,4 +263,4 @@ def check_email(n_clicks, raw_email):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=8050)
+    app.run(debug=os.environ.get("DASH_DEBUG") == "1", port=8050)

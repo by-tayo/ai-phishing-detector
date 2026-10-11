@@ -1,8 +1,3 @@
-# ============================================
-# AI-Powered Phishing Detector — Dockerfile
-# FastAPI Backend + ML Models
-# ============================================
-
 # Use official Python 3.12 slim image for smaller size
 FROM python:3.12-slim
 

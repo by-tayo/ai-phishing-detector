@@ -3,15 +3,15 @@ import joblib
 
 try:
     from ml.email_heuristics import analyze_email
+    from ml.preprocess import load_url_model, score_url
 except ImportError:
     from email_heuristics import analyze_email
+    from preprocess import load_url_model, score_url
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 EMAIL_MODEL_PATH = os.path.join(BASE_DIR, "email_phishing_model.pkl")
 EMAIL_VECTORIZER_PATH = os.path.join(BASE_DIR, "email_vectorizer.pkl")
-URL_MODEL_PATH = os.path.join(BASE_DIR, "phishing_model.pkl")
-URL_VECTORIZER_PATH = os.path.join(BASE_DIR, "vectorizer.pkl")
 
 TEXT_WEIGHT = 0.5
 LINK_WEIGHT = 0.3
@@ -19,8 +19,7 @@ HEURISTIC_WEIGHT = 0.2
 
 _email_model = joblib.load(EMAIL_MODEL_PATH)
 _email_vectorizer = joblib.load(EMAIL_VECTORIZER_PATH)
-_url_model = joblib.load(URL_MODEL_PATH)
-_url_vectorizer = joblib.load(URL_VECTORIZER_PATH)
+_url_model = load_url_model()
 
 
 def _phishing_probability(model, vectorizer, text: str) -> float:
@@ -38,7 +37,7 @@ def predict_email(raw_email: str) -> dict:
     links = []
     link_score = 0.0
     for url in analysis["urls"]:
-        confidence = _phishing_probability(_url_model, _url_vectorizer, url)
+        confidence, _ = score_url(_url_model, url)
         links.append({
             "url": url,
             "is_phishing": confidence >= 0.5,

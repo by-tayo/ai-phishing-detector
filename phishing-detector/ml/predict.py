@@ -1,19 +1,23 @@
-import joblib
+import sys
+from pathlib import Path
 
-model = joblib.load("phishing_model.pkl")
-vectorizer = joblib.load("vectorizer.pkl")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from preprocess import load_url_model, score_url
 
-def predict_phishing(text: str):
-    features = vectorizer.transform([text])
-    prediction = model.predict(features)[0]
-    confidence = max(model.predict_proba(features)[0])
-    
+model = load_url_model()
+
+
+def predict_phishing(text: str) -> dict:
+    probability, reasons = score_url(model, text)
+    is_phishing = probability >= 0.5
     return {
         "input": text,
-        "is_phishing": bool(prediction),
-        "confidence": round(float(confidence), 4),
+        "is_phishing": is_phishing,
+        "confidence": round(probability if is_phishing else 1 - probability, 4),
+        "reasons": reasons,
     }
 
+
 if __name__ == "__main__":
-    test_url = "http://suspicious-login.verify-account.com"
-    print(predict_phishing(test_url))
+    for url in sys.argv[1:] or ["http://suspicious-login.verify-account.com"]:
+        print(predict_phishing(url))

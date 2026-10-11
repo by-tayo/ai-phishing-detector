@@ -1,9 +1,6 @@
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
-import torch
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "models", "phishing-bert")
 
@@ -14,9 +11,8 @@ _tokenizer = None
 def _load_model():
     global _model, _tokenizer
     if _model is None:
-        # Loaded lazily so the rest of the API (URL/email endpoints) still
-        # works even when the BERT weights aren't present locally (they're
-        # gitignored — see README) and only this endpoint fails.
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
         _model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
         _tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
         _model.eval()
@@ -24,6 +20,8 @@ def _load_model():
 
 
 def predict_phishing(text: str):
+    import torch
+
     model, tokenizer = _load_model()
     inputs = tokenizer(
         text,

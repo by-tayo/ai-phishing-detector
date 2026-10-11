@@ -1,28 +1,54 @@
+from pathlib import Path
+from urllib.parse import urlsplit
+
 import pandas as pd
-import urllib.request
+from datasets import load_dataset
 
-# Load PhishTank data (all phishing)
-phish_df = pd.read_csv("ml/data/phishing_information.csv")
-phish_df = phish_df[["url"]].dropna()
-phish_df["label"] = "phishing"
+OUT = Path(__file__).resolve().parent / "final_dataset.csv"
 
-# Download Tranco top legitimate domains
-print("Downloading Tranco legitimate URLS")
-legit_url = "https://raw.githubusercontent.com/faizann24/Using-machine-learning-to-detect-malicious-URLs/master/data/good_urls.txt"
-urllib.request.urlretrieve(legit_url, "ml/data/tranco.csv")
 
-# Load and format Tranco data
-tranco_df = pd.read_csv("ml/data/tranco.csv", header=None, names=["rank", "domain"])
-tranco_df["url"] = "https://" + tranco_df["domain"]
-tranco_df = tranco_df[["url"]]
-tranco_df["label"] = "legitimate"
+def _split(url: str):
+    try:
+        return urlsplit(url if "://" in url else "http://" + url)
+    except ValueError:  # malformed URLs (e.g. broken IPv6 brackets)
+        return None
 
-# Balance and combine
-n = min(len(phish_df), len(tranco_df))
-combined = pd.concat([phish_df.sample(n, random_state=42), tranco_df.sample(n, random_state=42)])
-combined = combined.sample(frac=1, random_state=42).reset_index(drop=True)
 
-# Save
-combined.to_csv("ml/data/combined_dataset.csv", index=False)
-print(f"Done! Saved {len(combined)} rows to ml/data/combined_dataset.csv")
-print(combined["label"].value_counts())
+def host_of(url: str) -> str:
+    parts = _split(url)
+    return (parts.hostname or "").lower() if parts else ""
+
+
+def has_path(url: str) -> bool:
+    parts = _split(url)
+    return bool(parts and (parts.path not in ("", "/") or parts.query))
+
+
+def main() -> None:
+    ds = load_dataset("pirocheto/phishing-url")
+    df = pd.concat([ds[split].to_pandas()[["url", "status"]] for split in ds], ignore_index=True)
+
+    df["url"] = df["url"].astype(str).str.strip()
+    df = df[df["url"] != ""]
+    df["label"] = (df["status"].str.lower() == "phishing").astype(int)
+    df = df.drop_duplicates(subset="url").reset_index(drop=True)
+    df["host"] = df["url"].map(host_of)
+    df = df[df["host"] != ""][["url", "label", "host"]]
+    df.to_csv(OUT, index=False)
+
+    names = {0: "legitimate", 1: "phishing"}
+    print(f"Saved {len(df):,} URLs to {OUT}\n")
+    print(df["label"].map(names).value_counts().to_string())
+
+    traits = pd.DataFrame({
+        "has path": df["url"].map(has_path),
+        "https": df["url"].str.lower().str.startswith("https://"),
+        "www.": df["host"].str.startswith("www."),
+    })
+    summary = traits.groupby(df["label"].map(names)).mean().mul(100).round(1)
+    print("\n% of URLs with each trait (the old dataset was 0% / 100% / 100% for legitimate):")
+    print(summary.to_string())
+
+
+if __name__ == "__main__":
+    main()
