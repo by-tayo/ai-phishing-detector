@@ -5,8 +5,8 @@ ROOT = Path(__file__).resolve().parents[1]
 BACKEND_DIR = ROOT / "phishing-detector" / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
-from main import app
 from fastapi.testclient import TestClient
+from main import app
 
 client = TestClient(app)
 
