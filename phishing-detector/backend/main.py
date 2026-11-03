@@ -1,9 +1,10 @@
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+from collections import defaultdict, deque
+from time import monotonic
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
+
 from schemas import PhishingRequest, PhishingResponse, EmailRequest, EmailResponse
 from model import predict_phishing
 from ml.phishtank_api import check_url_live
@@ -23,9 +24,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+MAX_REQUESTS_PER_WINDOW = 60
+RATE_LIMIT_SECONDS = 60
+client_buckets = defaultdict(deque)
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    client_ip = request.client.host if request.client else "unknown"
+    now = monotonic()
+    bucket = client_buckets[client_ip]
+
+    while bucket and now - bucket[0] > RATE_LIMIT_SECONDS:
+        bucket.popleft()
+
+    if len(bucket) >= MAX_REQUESTS_PER_WINDOW:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded. Please try again later."},
+        )
+
+    bucket.append(now)
+    return await call_next(request)
+
+
 @app.get("/")
 def root():
     return {"status": "Phishing Detector API is running"}
+
 
 @app.post("/predict", response_model=PhishingResponse)
 def predict(request: PhishingRequest):
@@ -37,6 +63,7 @@ def predict(request: PhishingRequest):
         reasons=result["reasons"],
     )
 
+
 @app.post("/predict/transformer", response_model=PhishingResponse)
 def predict_transformer(request: PhishingRequest):
     result = predict_phishing_transformer(request.text)
@@ -46,10 +73,12 @@ def predict_transformer(request: PhishingRequest):
         confidence=result["confidence"],
     )
 
+
 @app.post("/check-live")
 def check_live(request: PhishingRequest):
     result = check_url_live(request.text)
     return result
+
 
 @app.post("/predict/email", response_model=EmailResponse)
 def predict_email_route(request: EmailRequest):
