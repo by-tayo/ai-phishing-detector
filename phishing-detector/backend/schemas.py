@@ -1,21 +1,26 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
 
 class PhishingRequest(BaseModel):
-    text: str
+    text: str = Field(..., min_length=1, max_length=2048)
+
 
 class PhishingResponse(BaseModel):
     input: str
     is_phishing: bool
     confidence: float
-    reasons: list[str] = []
+    reasons: list[str] = Field(default_factory=list)
+
 
 class EmailRequest(BaseModel):
-    raw_email: str
+    raw_email: str = Field(..., min_length=1, max_length=50000)
+
 
 class LinkResult(BaseModel):
     url: str
     is_phishing: bool
     confidence: float
+
 
 class EmailResponse(BaseModel):
     is_phishing: bool
